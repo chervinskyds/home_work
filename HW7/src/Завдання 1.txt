@@ -1,0 +1,39 @@
+# Завдання 1: Керування користувачами та групами
+
+# 1. Створення облікових записів користувачів та домашній каталог для користувача
+sudo useradd -m dev1
+sudo useradd -m dev2
+sudo useradd -m dev3
+
+# 2. Створення груп
+sudo groupadd developers
+sudo groupadd webmasters
+
+# 3. Призначення користувачів до груп
+sudo usermod -aG developers dev1
+sudo usermod -aG developers dev2
+sudo usermod -aG developers dev3
+sudo usermod -aG webmasters dev3
+
+# 4. Встановлення групи за замовчуванням
+sudo usermod -g developers dev1
+sudo usermod -g developers dev2
+sudo usermod -g webmasters dev3
+
+5. Домашні каталоги автоматично створюються при додаванні користувача з ключем -m
+
+# 6. Клонування облікового запису користувача
+sudo useradd -m backupdev
+sudo cp -r /home/dev1 /home/backupdev
+sudo chown -R backupdev:backupdev /home/backupdev
+
+# 7. Налаштування дозволів для спільного проекту
+sudo mkdir /home/web_project
+sudo chown :developers /home/web_project
+sudo chmod 2775 /home/web_project
+
+# 8. Незмінний файл журналу
+sudo touch /home/my.log
+sudo chown root:root /home/my.log
+sudo chmod 644 /home/my.log
+sudo chattr +a /home/my.log
