@@ -1,0 +1,129 @@
+# =======================
+# 🔹 Системні змінні
+# =======================
+ENV['DB_NAME']   = "petclinic_db"
+ENV['DB_USER']   = "petclinic_user"
+ENV['DB_PASS']   = "petclinic_pass"
+ENV['DB_HOST']   = "192.168.56.10"
+ENV['DB_PORT']   = "3306"
+
+ENV['APP_HOST']  = "192.168.56.11"
+ENV['APP_PORT']  = "8080"
+ENV['APP_USER']  = "petclinic"
+ENV['PROJECT_DIR'] = "/home/#{ENV['APP_USER']}/petclinic"
+ENV['APP_DIR'] = "/home/#{ENV['APP_USER']}/app"
+
+Vagrant.configure("2") do |config|
+  # =======================
+  # 🔹 Конфігурація DB_VM (MySQL)
+  # =======================
+  config.vm.define "db_vm" do |db|
+    db.vm.box = "ubuntu/jammy64"
+    db.vm.hostname = "db-vm"
+    db.vm.network "private_network", ip: ENV['DB_HOST']
+    db.vm.provider "virtualbox" do |vb|
+      vb.memory = "3072"
+      vb.cpus = 2
+    end
+
+    db.vm.provision "shell", inline: <<-SHELL
+      set -e
+
+      echo "🚀 Оновлення системи та встановлення MySQL..."
+      sudo apt update -y
+      sudo apt install -y mysql-server
+
+      echo "🚀 Налаштування MySQL..."
+      sudo sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf
+      sudo systemctl restart mysql || (sleep 5 && sudo systemctl restart mysql)
+
+      echo "🚀 Створення бази даних та користувача..."
+      sudo mysql -e "DROP USER IF EXISTS '#{ENV['DB_USER']}'@'%';"
+      sudo mysql -e "CREATE USER '#{ENV['DB_USER']}'@'%' IDENTIFIED BY '#{ENV['DB_PASS']}';"
+      sudo mysql -e "CREATE DATABASE IF NOT EXISTS #{ENV['DB_NAME']};"
+      sudo mysql -e "GRANT ALL PRIVILEGES ON #{ENV['DB_NAME']}.* TO '#{ENV['DB_USER']}'@'%';"
+      sudo mysql -e "FLUSH PRIVILEGES;"
+
+      echo "✅ MySQL встановлено та налаштовано!"
+    SHELL
+  end
+
+  # =======================
+  # 🔹 Конфігурація APP_VM (PetClinic)
+  # =======================
+  config.vm.define "app_vm" do |app|
+    app.vm.box = "ubuntu/jammy64"
+    app.vm.hostname = "app-vm"
+    app.vm.network "private_network", ip: ENV['APP_HOST']
+    app.vm.network "forwarded_port", guest: ENV['APP_PORT'].to_i, host: ENV['APP_PORT'].to_i
+    app.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.cpus = 1
+    end
+
+    app.vm.provision "shell", inline: <<-SHELL
+      set -e
+
+      echo "🚀 Оновлення системи та встановлення необхідних пакетів..."
+      sudo apt update -y
+      sudo apt install -y openjdk-17-jdk git maven mysql-client
+
+      echo "🚀 Створення користувача для PetClinic..."
+      sudo useradd -m -s /bin/bash #{ENV['APP_USER']} || true
+      sudo mkdir -p #{ENV['PROJECT_DIR']}
+      sudo chown -R #{ENV['APP_USER']}:#{ENV['APP_USER']} #{ENV['PROJECT_DIR']}
+
+      echo "🚀 Копіюємо код у директорію застосунку..."
+      sudo cp -r /vagrant/* #{ENV['PROJECT_DIR']}
+      sudo chown -R #{ENV['APP_USER']}:#{ENV['APP_USER']} #{ENV['PROJECT_DIR']}
+
+      echo "⏳ Очікуємо запуск MySQL..."
+      until mysqladmin ping -h #{ENV['DB_HOST']} --silent; do
+        sleep 2
+      done
+      echo "✅ MySQL доступний!"
+
+      echo "🚀 Генерація файлу конфігурації Spring Boot..."
+      sudo mkdir -p #{ENV['APP_DIR']}
+      echo "spring.datasource.url=jdbc:mysql://#{ENV['DB_HOST']}:#{ENV['DB_PORT']}/#{ENV['DB_NAME']}
+      spring.datasource.username=#{ENV['DB_USER']}
+      spring.datasource.password=#{ENV['DB_PASS']}
+      spring.jpa.hibernate.ddl-auto=update
+      " | sudo tee #{ENV['APP_DIR']}/application.properties
+
+      echo "🚀 Збірка PetClinic..."
+      cd #{ENV['PROJECT_DIR']}
+      if [ -f "./mvnw" ]; then
+        sudo -u #{ENV['APP_USER']} chmod +x mvnw
+        sudo -u #{ENV['APP_USER']} ./mvnw package
+      else
+        echo "⚠️ Maven Wrapper не знайдено! Використовуємо mvn..."
+        sudo -u #{ENV['APP_USER']} mvn package
+      fi
+
+      echo "🚀 Копіювання JAR у папку застосунку..."
+      sudo -u #{ENV['APP_USER']} cp #{ENV['PROJECT_DIR']}/target/*.jar #{ENV['APP_DIR']}/petclinic.jar
+
+      echo "🚀 Запуск PetClinic через systemd..."
+      echo "[Unit]
+      Description=PetClinic Application
+      After=network.target
+
+      [Service]
+      User=#{ENV['APP_USER']}
+      WorkingDirectory=#{ENV['APP_DIR']}
+      EnvironmentFile=#{ENV['APP_DIR']}/application.properties
+      ExecStart=/usr/bin/java -jar #{ENV['APP_DIR']}/petclinic.jar
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target" | sudo tee /etc/systemd/system/petclinic.service
+
+      sudo systemctl daemon-reload
+      sudo systemctl enable petclinic
+      sudo systemctl start petclinic
+
+      echo "✅ PetClinic успішно запущено!"
+    SHELL
+  end
+end
