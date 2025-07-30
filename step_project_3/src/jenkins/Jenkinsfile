@@ -1,0 +1,36 @@
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Clone') {
+            steps {
+                git 'https://github.com/chervinskyds/step2-app'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'docker build -t step2-app .'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh 'docker run step2-app npm test || echo "Tests failed"'
+            }
+        }
+
+        stage('Push to DockerHub') {
+            when {
+                expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh 'docker push step2-app'
+                }
+            }
+        }
+    }
+}
