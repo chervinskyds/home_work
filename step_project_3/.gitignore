@@ -1,0 +1,26 @@
+# Ігнорувати директорії Terraform з кешем і станом
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Логи і тимчасові файли Terraform
+*.log
+*.backup
+
+# Ігнорувати приватні ключі (якщо є)
+*.pem
+*.key
+
+# Ansible тимчасові файли
+*.retry
+
+# IDE і редакторські файли
+.vscode/
+.idea/
+*.swp
+*.bak
+
+# Jenkins workspace
+workspace/
+
