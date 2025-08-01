@@ -24,4 +24,5 @@
 # Jenkins workspace
 workspace/
 .terraform
+*.exe
 
