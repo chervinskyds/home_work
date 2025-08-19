@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: randapp-deploy
+  labels:
+    app: randapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: randapp
+  template:
+    metadata:
+      labels:
+        app: randapp
+    spec:
+      imagePullSecrets:
+        - name: regcred          
+      containers:
+        - name: randapp
+          image: chervinskyds/hw24-rand:1.0
+          ports:
+            - containerPort: 8000
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          readinessProbe:
+            httpGet: { path: "/", port: 8000 }
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: "/", port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
