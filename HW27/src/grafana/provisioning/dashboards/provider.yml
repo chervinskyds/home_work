@@ -1,0 +1,14 @@
+apiVersion: 1
+providers:
+  - name: 'community-dashboards'
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true
+# Tip: Import by ID in Grafana -> Dashboards -> Import:
+#   • 1860  (Node Exporter Full)
+#   • 893   (cAdvisor)
+#   • 12239 (Docker / container metrics)

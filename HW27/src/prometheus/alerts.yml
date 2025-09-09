@@ -1,0 +1,32 @@
+groups:
+  - name: hw27.rules
+    rules:
+      # CPU середнє >80% (швидкий варіант для демо)
+      - alert: HighCPUUsage
+        expr: (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[1m]))) * 100 > 80
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "Average CPU usage > 80% for 30s. Current value: {{ $value | printf \"%.2f\" }}%."
+
+      # Будь-яке ядро >80% (щоб не вантажити весь ноут)
+      - alert: HighCPUAnyCore
+        expr: max by (instance) ((1 - avg by (instance, cpu) (rate(node_cpu_seconds_total{mode="idle"}[1m])))) * 100 > 80
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "High CPU (any core) on {{ $labels.instance }}"
+          description: "At least one CPU core > 80% for 30s. Value: {{ $value | printf \"%.1f\" }}%."
+
+      # Недоступний будь-який таргет
+      - alert: TargetDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target down: {{ $labels.job }} / {{ $labels.instance }}"
+          description: "Prometheus cannot scrape this target for at least 30 seconds."

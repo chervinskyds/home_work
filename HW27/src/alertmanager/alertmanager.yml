@@ -1,0 +1,24 @@
+route:
+  receiver: telegram
+  group_by: ['alertname', 'job']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 1h
+
+receivers:
+  - name: 'telegram'
+    telegram_configs:
+      - bot_token: '8313105393:AAEJRVnFaHmNd0Nmqi5n9uXA-wJZCynutEU'
+        chat_id: 487559976
+        disable_notifications: false
+        parse_mode: 'HTML'
+        message: >-
+          <b>{{ .Status | toUpper }}</b> {{ range .Alerts }}\n
+          <b>{{ .Labels.alertname }}</b> on <i>{{ .Labels.instance }}</i>\n
+          {{ .Annotations.summary }}\n
+          {{ .Annotations.description }}\n
+          <a href="http://localhost:3000">Open Grafana</a> |
+          <a href="http://localhost:9090/alerts">Open Prometheus</a>\n
+          {{ end }}
+
+templates: []
